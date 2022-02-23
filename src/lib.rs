@@ -1,4 +1,4 @@
-//#![no_std]
+#![no_std]
 
 //macro_rules! dyn_box {
 	
@@ -39,12 +39,8 @@ impl <const SIZE: usize> DynBox<SIZE> {
 
 		let parts: [usize; 2] = unsafe { core::mem::transmute(&content as *const dyn Fnord) };
 		self.vtable = parts[1];
-		println!("{:08x?}", parts);
-		println!("writing {} bytes", size);
 		unsafe { (&mut self.store as *mut _ as *mut T).copy_from(parts[0] as *mut _, 1); }
-		println!("foo");
 		core::mem::forget(content);
-		println!("bar");
 	}
 
 	pub fn clear(&mut self) {
@@ -78,7 +74,6 @@ impl <const SIZE: usize> DynBox<SIZE> {
 
 	unsafe fn get_ptr_mut(&self) -> *mut dyn Fnord {
 		let foo: [usize; 2] = [ &self.store as *const _ as usize, self.vtable ];
-		println!("get {:08x?}", foo);
 		return core::mem::transmute(foo)
 	}
 }
@@ -127,13 +122,10 @@ mod tests {
 
 		let mut dynbox = DynBox::<64>::new();
 		dynbox.set(b);
-		println!("baz");
 		assert!(dynbox.get().unwrap().foo() == 42);
 		assert!(dynbox.get_mut().unwrap().foo() == 42);
 
 		dynbox.clear();
-		println!("success");
-
 	}
 
 	#[test]
