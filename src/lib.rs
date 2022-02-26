@@ -1,8 +1,5 @@
 #![no_std]
 
-//macro_rules! dyn_box {
-	
-//}
 pub trait Fnord {
 	fn foo(&self) -> u32;
 }
@@ -13,73 +10,80 @@ struct B(u128);
 impl Fnord for A { fn foo(&self) -> u32 { 1 } }
 impl Fnord for B { fn foo(&self) -> u32 { self.0 as u32 } }
 
-#[repr(align(16))]
-pub struct DynBox<const SIZE: usize> {
-	store: [u8; SIZE],
-	vtable: usize
+macro_rules! dyn_box {
+	($name:ident : $trait:ident) => {
+		#[repr(align(16))]
+		pub struct $name<const SIZE: usize> {
+			store: [u8; SIZE],
+			vtable: usize
+		}
+
+		impl <const SIZE: usize> $name<SIZE> {
+			pub fn new() -> $name<SIZE> {
+				$name {
+					store: [0; SIZE],
+					vtable: 0
+				}
+			}
+
+			pub fn set<T: $trait>(&mut self, content: T) {
+				if !self.empty() {
+					self.clear();
+				}
+
+				let size = core::mem::size_of::<T>();
+
+				assert!(size <= SIZE);
+
+
+				let parts: [usize; 2] = unsafe { core::mem::transmute(&content as *const dyn $trait) };
+				self.vtable = parts[1];
+				unsafe { (&mut self.store as *mut _ as *mut T).copy_from(parts[0] as *mut _, 1); }
+				core::mem::forget(content);
+			}
+
+			pub fn clear(&mut self) {
+				if self.vtable != 0 {
+					unsafe { core::ptr::drop_in_place(self.get_ptr_mut()) }
+					self.vtable = 0;
+				}
+			}
+
+			pub fn empty(&self) -> bool {
+				self.vtable == 0
+			}
+
+			pub fn get(&self) -> Option<&dyn $trait> {
+				if self.vtable == 0 {
+					None
+				}
+				else {
+					Some(unsafe { &*self.get_ptr_mut() })
+				}
+			}
+
+			pub fn get_mut(&mut self) -> Option<&mut dyn $trait> {
+				if self.vtable == 0 {
+					None
+				}
+				else {
+					Some(unsafe { &mut *self.get_ptr_mut() })
+				}
+			}
+
+			unsafe fn get_ptr_mut(&self) -> *mut dyn $trait {
+				let foo: [usize; 2] = [ &self.store as *const _ as usize, self.vtable ];
+				return core::mem::transmute(foo)
+			}
+		}
+
+	}
 }
-
-impl <const SIZE: usize> DynBox<SIZE> {
-	pub fn new() -> DynBox<SIZE> {
-		DynBox {
-			store: [0; SIZE],
-			vtable: 0
-		}
-	}
-
-	pub fn set<T: Fnord>(&mut self, content: T) {
-		if !self.empty() {
-			self.clear();
-		}
-
-		let size = core::mem::size_of::<T>();
-
-		assert!(size <= SIZE);
-
-
-		let parts: [usize; 2] = unsafe { core::mem::transmute(&content as *const dyn Fnord) };
-		self.vtable = parts[1];
-		unsafe { (&mut self.store as *mut _ as *mut T).copy_from(parts[0] as *mut _, 1); }
-		core::mem::forget(content);
-	}
-
-	pub fn clear(&mut self) {
-		if self.vtable != 0 {
-			unsafe { core::ptr::drop_in_place(self.get_ptr_mut()) }
-			self.vtable = 0;
-		}
-	}
-
-	pub fn empty(&self) -> bool {
-		self.vtable == 0
-	}
-
-	pub fn get(&self) -> Option<&dyn Fnord> {
-		if self.vtable == 0 {
-			None
-		}
-		else {
-			Some(unsafe { &*self.get_ptr_mut() })
-		}
-	}
-
-	pub fn get_mut(&mut self) -> Option<&mut dyn Fnord> {
-		if self.vtable == 0 {
-			None
-		}
-		else {
-			Some(unsafe { &mut *self.get_ptr_mut() })
-		}
-	}
-
-	unsafe fn get_ptr_mut(&self) -> *mut dyn Fnord {
-		let foo: [usize; 2] = [ &self.store as *const _ as usize, self.vtable ];
-		return core::mem::transmute(foo)
-	}
-}
-
 mod tests {
 	use super::*;
+
+	dyn_box!(DynBox:Fnord);
+
 	#[test]
 	fn new_dynbox_is_empty() {
 		let mut dynbox = DynBox::<64>::new();
