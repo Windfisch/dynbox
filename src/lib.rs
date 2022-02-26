@@ -8,6 +8,12 @@ macro_rules! dyn_box {
 			vtable: usize
 		}
 
+		impl <const SIZE: usize> Drop for $name<SIZE> {
+			fn drop(&mut self) {
+				self.clear();
+			}
+		}
+
 		impl <const SIZE: usize> $name<SIZE> {
 			pub fn new() -> $name<SIZE> {
 				$name {
