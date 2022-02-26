@@ -1,15 +1,5 @@
 #![no_std]
 
-pub trait Fnord {
-	fn foo(&self) -> u32;
-}
-
-struct A;
-struct B(u128);
-
-impl Fnord for A { fn foo(&self) -> u32 { 1 } }
-impl Fnord for B { fn foo(&self) -> u32 { self.0 as u32 } }
-
 macro_rules! dyn_box {
 	($name:ident : $trait:ident) => {
 		#[repr(align(16))]
@@ -79,8 +69,28 @@ macro_rules! dyn_box {
 
 	}
 }
+
+//#[cfg(test)]
 mod tests {
 	use super::*;
+	use core::cell::Cell;
+
+	pub trait Fnord {
+		fn foo(&self) -> u32;
+	}
+
+	struct A;
+	struct B(u128);
+	struct Droppable<'a>(&'a Cell<bool>);
+
+	impl Fnord for A { fn foo(&self) -> u32 { 1 } }
+	impl Fnord for B { fn foo(&self) -> u32 { self.0 as u32 } }
+	impl Fnord for Droppable<'_> { fn foo(&self) -> u32 { 2 } }
+	impl Drop for Droppable<'_> {
+		fn drop(&mut self) {
+			self.0.set(true);
+		}
+	}
 
 	dyn_box!(DynBox:Fnord);
 
@@ -151,5 +161,46 @@ mod tests {
 		dynbox.set(b);
 		assert!(dynbox.get().unwrap().foo() == 42);
 		assert!(dynbox.get_mut().unwrap().foo() == 42);
+	}
+
+	#[test]
+	fn drop_is_called_on_clear() {
+		let drop_was_called = Cell::new(false);
+		let d = Droppable(&drop_was_called);
+		let mut dynbox = DynBox::<64>::new();
+
+		dynbox.set(d);
+		assert!(!drop_was_called.get());
+
+		dynbox.clear();
+		assert!(drop_was_called.get());
+	}
+
+	#[test]
+	fn drop_is_called_on_set() {
+		let drop_was_called = Cell::new(false);
+		let d = Droppable(&drop_was_called);
+		let a = A;
+		let mut dynbox = DynBox::<64>::new();
+
+		dynbox.set(d);
+		assert!(!drop_was_called.get());
+
+		dynbox.set(a);
+		assert!(drop_was_called.get());
+	}
+
+	#[test]
+	fn drop_is_called_on_drop() {
+		let drop_was_called = Cell::new(false);
+		{
+			let d = Droppable(&drop_was_called);
+			let mut dynbox = DynBox::<64>::new();
+
+			dynbox.set(d);
+			assert!(!drop_was_called.get());
+		}
+
+		assert!(drop_was_called.get());
 	}
 }
