@@ -6,20 +6,20 @@ macro_rules! dyn_box {
 		#[repr(align(16))]
 		pub struct $name<const SIZE: usize> {
 			store: [u8; SIZE],
-			vtable: usize
+			vtable: usize,
 		}
 
-		impl <const SIZE: usize> Drop for $name<SIZE> {
+		impl<const SIZE: usize> Drop for $name<SIZE> {
 			fn drop(&mut self) {
 				self.clear();
 			}
 		}
 
-		impl <const SIZE: usize> $name<SIZE> {
+		impl<const SIZE: usize> $name<SIZE> {
 			pub fn new() -> $name<SIZE> {
 				$name {
 					store: [0; SIZE],
-					vtable: 0
+					vtable: 0,
 				}
 			}
 
@@ -32,9 +32,12 @@ macro_rules! dyn_box {
 
 				assert!(size <= SIZE);
 
-				let parts: [usize; 2] = unsafe { core::mem::transmute(&content as *const dyn $trait) };
+				let parts: [usize; 2] =
+					unsafe { core::mem::transmute(&content as *const dyn $trait) };
 				self.vtable = parts[1];
-				unsafe { (&mut self.store as *mut _ as *mut T).copy_from(parts[0] as *mut _, 1); }
+				unsafe {
+					(&mut self.store as *mut _ as *mut T).copy_from(parts[0] as *mut _, 1);
+				}
 				core::mem::forget(content);
 			}
 
@@ -52,8 +55,7 @@ macro_rules! dyn_box {
 			pub fn get(&self) -> Option<&dyn $trait> {
 				if self.vtable == 0 {
 					None
-				}
-				else {
+				} else {
 					Some(unsafe { &*self.get_ptr_mut() })
 				}
 			}
@@ -61,19 +63,17 @@ macro_rules! dyn_box {
 			pub fn get_mut(&mut self) -> Option<&mut dyn $trait> {
 				if self.vtable == 0 {
 					None
-				}
-				else {
+				} else {
 					Some(unsafe { &mut *self.get_ptr_mut() })
 				}
 			}
 
 			unsafe fn get_ptr_mut(&self) -> *mut dyn $trait {
-				let foo: [usize; 2] = [ &self.store as *const _ as usize, self.vtable ];
-				return core::mem::transmute(foo)
+				let foo: [usize; 2] = [&self.store as *const _ as usize, self.vtable];
+				return core::mem::transmute(foo);
 			}
 		}
-
-	}
+	};
 }
 
 #[cfg(test)]
@@ -88,9 +88,21 @@ mod tests {
 	struct B(u128);
 	struct Droppable<'a>(&'a Cell<bool>);
 
-	impl MyTrait for A { fn foo(&self) -> u32 { 1 } }
-	impl MyTrait for B { fn foo(&self) -> u32 { self.0 as u32 } }
-	impl MyTrait for Droppable<'_> { fn foo(&self) -> u32 { 2 } }
+	impl MyTrait for A {
+		fn foo(&self) -> u32 {
+			1
+		}
+	}
+	impl MyTrait for B {
+		fn foo(&self) -> u32 {
+			self.0 as u32
+		}
+	}
+	impl MyTrait for Droppable<'_> {
+		fn foo(&self) -> u32 {
+			2
+		}
+	}
 	impl Drop for Droppable<'_> {
 		fn drop(&mut self) {
 			self.0.set(true);
