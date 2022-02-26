@@ -1,5 +1,6 @@
 #![no_std]
 
+#[allow(unused_macros)]
 macro_rules! dyn_box {
 	($name:ident : $trait:ident) => {
 		#[repr(align(16))]
@@ -30,7 +31,6 @@ macro_rules! dyn_box {
 				let size = core::mem::size_of::<T>();
 
 				assert!(size <= SIZE);
-
 
 				let parts: [usize; 2] = unsafe { core::mem::transmute(&content as *const dyn $trait) };
 				self.vtable = parts[1];
@@ -76,12 +76,11 @@ macro_rules! dyn_box {
 	}
 }
 
-//#[cfg(test)]
+#[cfg(test)]
 mod tests {
-	use super::*;
 	use core::cell::Cell;
 
-	pub trait Fnord {
+	pub trait MyTrait {
 		fn foo(&self) -> u32;
 	}
 
@@ -89,16 +88,16 @@ mod tests {
 	struct B(u128);
 	struct Droppable<'a>(&'a Cell<bool>);
 
-	impl Fnord for A { fn foo(&self) -> u32 { 1 } }
-	impl Fnord for B { fn foo(&self) -> u32 { self.0 as u32 } }
-	impl Fnord for Droppable<'_> { fn foo(&self) -> u32 { 2 } }
+	impl MyTrait for A { fn foo(&self) -> u32 { 1 } }
+	impl MyTrait for B { fn foo(&self) -> u32 { self.0 as u32 } }
+	impl MyTrait for Droppable<'_> { fn foo(&self) -> u32 { 2 } }
 	impl Drop for Droppable<'_> {
 		fn drop(&mut self) {
 			self.0.set(true);
 		}
 	}
 
-	dyn_box!(DynBox:Fnord);
+	dyn_box!(DynBox: MyTrait);
 
 	#[test]
 	fn new_dynbox_is_empty() {
