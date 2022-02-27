@@ -1,7 +1,16 @@
 #![no_std]
 
 #[allow(unused_macros)]
-macro_rules! dyn_box {
+#[macro_export]
+/// Generates a DynBox-like data structure that can hold a certain trait.
+/// Example:
+/// ```
+/// use dyn_box::dynbox;
+/// trait MyTrait { fn foo(&self) -> u32; }
+/// dynbox!(MyDynBox: MyTrait);
+/// let my_dynbox = MyDynBox::<16>::new();
+/// ```
+macro_rules! dynbox {
 	($name:ident : $trait:ident) => {
 		#[repr(align(16))]
 		pub struct $name<const SIZE: usize> {
@@ -109,7 +118,7 @@ mod tests {
 		}
 	}
 
-	dyn_box!(DynBox: MyTrait);
+	dynbox!(DynBox: MyTrait);
 
 	#[test]
 	fn new_dynbox_is_empty() {
