@@ -13,6 +13,10 @@
 macro_rules! dynbox {
 	($name:ident : $trait:ident) => {
 		#[repr(align(16))]
+		/// DynBox for a given Trait with `Option<dyn Trait>`-like semantics.
+		/// Can hold implementors of the trait if they do not exceed `SIZE`, and
+		/// allows to retrieve `&dyn Trait` and `&mut dyn Trait` references.
+		/// Generated through the `dynbox!` macro
 		pub struct $name<const SIZE: usize> {
 			store: [u8; SIZE],
 			vtable: usize,
@@ -25,6 +29,7 @@ macro_rules! dynbox {
 		}
 
 		impl<const SIZE: usize> $name<SIZE> {
+			/// Creates a new empty DynBox.
 			pub fn new() -> $name<SIZE> {
 				$name {
 					store: [0; SIZE],
@@ -32,6 +37,9 @@ macro_rules! dynbox {
 				}
 			}
 
+			/// Stores a value of some generic type which implements $trait. Panics if
+			/// T's size exceeds `SIZE`. Clears (and drops) the previous value, if
+			/// present.
 			pub fn set<T: $trait>(&mut self, content: T) {
 				if !self.empty() {
 					self.clear();
@@ -50,6 +58,7 @@ macro_rules! dynbox {
 				core::mem::forget(content);
 			}
 
+			/// Makes the DynBox empty again by dropping the previous content, if any.
 			pub fn clear(&mut self) {
 				if self.vtable != 0 {
 					unsafe { core::ptr::drop_in_place(self.get_ptr_mut()) }
@@ -57,10 +66,12 @@ macro_rules! dynbox {
 				}
 			}
 
+			/// Returns whether the DynBox currently contains any value.
 			pub fn empty(&self) -> bool {
 				self.vtable == 0
 			}
 
+			/// Returns a `&dyn Trait` reference if not empty, or None otherwise.
 			pub fn get(&self) -> Option<&dyn $trait> {
 				if self.vtable == 0 {
 					None
@@ -69,6 +80,7 @@ macro_rules! dynbox {
 				}
 			}
 
+			/// Returns a `&mut dyn Trait` reference if not empty, or None otherwise.
 			pub fn get_mut(&mut self) -> Option<&mut dyn $trait> {
 				if self.vtable == 0 {
 					None
@@ -84,6 +96,15 @@ macro_rules! dynbox {
 		}
 	};
 }
+
+
+#[cfg(doc)]
+/// Some object-safe trait
+pub trait MyTrait {}
+
+#[cfg(doc)]
+dynbox!(MyDynBox: MyTrait);
+
 
 #[cfg(test)]
 mod tests {
