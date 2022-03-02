@@ -97,14 +97,12 @@ macro_rules! dynbox {
 	};
 }
 
-
 #[cfg(doc)]
 /// Some object-safe trait
 pub trait MyTrait {}
 
 #[cfg(doc)]
 dynbox!(MyDynBox: MyTrait);
-
 
 #[cfg(test)]
 mod tests {
